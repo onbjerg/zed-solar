@@ -16,22 +16,19 @@ impl SolarExtension {
             return Ok(path);
         }
         if let Some(path) = &self.cached_binary_path {
-            if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
+            if fs::metadata(path).is_ok_and(|stat| stat.is_file()) {
                 return Ok(path.clone());
             }
         }
 
         zed::set_language_server_installation_status(
-            &language_server_id,
+            language_server_id,
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
         );
 
         let release = zed::latest_github_release(
             "paradigmxyz/solar",
-            zed::GithubReleaseOptions {
-                require_assets: true,
-                pre_release: false,
-            },
+            zed::GithubReleaseOptions { require_assets: true, pre_release: false },
         )?;
 
         let (platform, arch) = zed::current_platform();
@@ -57,12 +54,12 @@ impl SolarExtension {
             .assets
             .iter()
             .find(|asset| asset.name == asset_name)
-            .ok_or_else(|| format!("no asset found matching {:?}", asset_name))?;
+            .ok_or_else(|| format!("no asset found matching {asset_name:?}"))?;
 
         let version_dir = format!("solar-{}", release.version);
         let binary_path = format!("{version_dir}/solar");
 
-        if !std::fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
+        if !std::fs::metadata(&binary_path).is_ok_and(|stat| stat.is_file()) {
             zed::set_language_server_installation_status(
                 language_server_id,
                 &zed::LanguageServerInstallationStatus::Downloading,
@@ -85,7 +82,7 @@ impl SolarExtension {
             for entry in entries {
                 let entry = entry.map_err(|e| format!("failed to load directory entry {e}"))?;
                 if entry.file_name().to_str() != Some(&version_dir) {
-                    fs::remove_dir_all(&entry.path()).ok();
+                    fs::remove_dir_all(entry.path()).ok();
                 }
             }
         }
@@ -97,9 +94,7 @@ impl SolarExtension {
 
 impl zed::Extension for SolarExtension {
     fn new() -> Self {
-        Self {
-            cached_binary_path: None,
-        }
+        Self { cached_binary_path: None }
     }
 
     fn language_server_command(
