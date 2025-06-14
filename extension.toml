@@ -12,4 +12,4 @@ language = "Solidity"
 
 [grammars.solidity]
 repository = "https://github.com/JoranHonig/tree-sitter-solidity"
-commit = "4ccd2b50ac2caaf8a97fc85ed4b10db4ce279a59"
+commit = "d38dcd0b58b223c43e3f9265914fb3167dc624c6"

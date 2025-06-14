@@ -9,4 +9,4 @@ brackets = [
     { start = "[", end = "]", close = true, newline = true },
     { start = "(", end = ")", close = true, newline = true },
 ]
-word_characters = ["a-z", "A-Z", "0-9", "_", "$"]
+word_characters = ["_", "$"]
