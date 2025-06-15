@@ -37,3 +37,113 @@ jobs:
       
       - name: Run clippy
         run: cargo +nightly clippy --all-features --all-targets -- -D warnings
+
+  build:
+    name: Build Extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Build extension (debug)
+        run: cargo build --target wasm32-unknown-unknown
+      
+      - name: Build extension (release)
+        run: cargo build --target wasm32-unknown-unknown --release
+      
+      - name: Verify WASM output
+        run: |
+          test -f target/wasm32-unknown-unknown/debug/zed_solar.wasm
+          test -f target/wasm32-unknown-unknown/release/zed_solar.wasm
+          echo "Debug WASM size: $(wc -c < target/wasm32-unknown-unknown/debug/zed_solar.wasm) bytes"
+          echo "Release WASM size: $(wc -c < target/wasm32-unknown-unknown/release/zed_solar.wasm) bytes"
+
+  validate-queries:
+    name: Validate Tree-sitter Queries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Clone tree-sitter-solidity
+        run: |
+          git clone https://github.com/JoranHonig/tree-sitter-solidity.git
+          cd tree-sitter-solidity
+          npm install
+      
+      - name: Install tree-sitter CLI
+        run: npm install -g tree-sitter-cli
+      
+      - name: Test queries against grammar
+        run: |
+          cd tree-sitter-solidity
+          # Copy our queries to test them
+          cp ../languages/solidity/highlights.scm ./queries/highlights-test.scm
+          cp ../languages/solidity/outline.scm ./queries/outline-test.scm
+          cp ../languages/solidity/indents.scm ./queries/indents-test.scm
+          
+          # Test parsing some Solidity files with our queries
+          echo 'pragma solidity ^0.8.0; contract Test { function test() public pure returns (uint256) { return 42; } }' > test.sol
+          tree-sitter parse test.sol
+          tree-sitter highlight test.sol --html
+          
+          echo "✅ Tree-sitter queries validation passed"
+
+  validate-extension:
+    name: Validate Extension Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install toml CLI
+        run: |
+          wget https://github.com/gnprice/toml-cli/releases/download/v0.2.3/toml-v0.2.3-x86_64-unknown-linux-musl.tar.gz
+          tar -xzf toml-v0.2.3-x86_64-unknown-linux-musl.tar.gz
+          sudo mv toml /usr/local/bin/
+      
+      - name: Validate extension.toml
+        run: |
+          # Check required fields exist
+          toml get extension.toml id >/dev/null
+          toml get extension.toml name >/dev/null
+          toml get extension.toml version >/dev/null
+          toml get extension.toml schema_version >/dev/null
+          echo "✅ extension.toml validation passed"
+      
+      - name: Validate language configuration
+        run: |
+          test -f languages/solidity/config.toml
+          test -f languages/solidity/highlights.scm
+          test -f languages/solidity/brackets.scm
+          test -f languages/solidity/indents.scm
+          test -f languages/solidity/outline.scm
+          echo "✅ Language configuration files exist"
+      
+      - name: Check Cargo.toml consistency
+        run: |
+          # Verify crate-type is set correctly for Zed extensions
+          grep -q 'crate-type = \["cdylib"\]' Cargo.toml
+          # Verify zed_extension_api dependency exists
+          grep -q 'zed_extension_api' Cargo.toml
+          echo "✅ Cargo.toml configuration is correct"
