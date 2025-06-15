@@ -10,3 +10,6 @@ brackets = [
     { start = "(", end = ")", close = true, newline = true },
 ]
 word_characters = ["_", "$"]
+
+[formatter]
+external = { command = "forge", arguments = ["fmt", "--raw", "-"] }
