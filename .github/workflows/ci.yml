@@ -98,6 +98,9 @@ jobs:
       - name: Test queries against grammar
         run: |
           cd tree-sitter-solidity
+          # Initialize tree-sitter config to suppress warnings
+          tree-sitter init-config
+          
           # Copy our queries to test them
           cp ../languages/solidity/highlights.scm ./queries/highlights-test.scm
           cp ../languages/solidity/outline.scm ./queries/outline-test.scm
@@ -105,8 +108,25 @@ jobs:
           
           # Test parsing some Solidity files with our queries
           echo 'pragma solidity ^0.8.0; contract Test { function test() public pure returns (uint256) { return 42; } }' > test.sol
-          tree-sitter parse test.sol
-          tree-sitter highlight test.sol --html
+          
+          # Test parsing (suppress config warnings)
+          tree-sitter parse test.sol > parse_output.txt 2>&1
+          if grep -q "source_file" parse_output.txt; then
+            echo "✅ Parsing successful"
+          else
+            echo "❌ Parsing failed"
+            cat parse_output.txt
+            exit 1
+          fi
+          
+          # Test highlighting
+          tree-sitter highlight test.sol --html > /dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ Highlighting successful"
+          else
+            echo "❌ Highlighting failed"
+            exit 1
+          fi
           
           echo "✅ Tree-sitter queries validation passed"
 
