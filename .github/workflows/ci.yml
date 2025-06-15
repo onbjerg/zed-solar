@@ -116,20 +116,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install toml CLI
-        run: |
-          wget https://github.com/gnprice/toml-cli/releases/download/v0.2.3/toml-v0.2.3-x86_64-unknown-linux-musl.tar.gz
-          tar -xzf toml-v0.2.3-x86_64-unknown-linux-musl.tar.gz
-          sudo mv toml /usr/local/bin/
+      - name: Setup Python for TOML validation
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install TOML parser
+        run: pip install toml
       
       - name: Validate extension.toml
         run: |
-          # Check required fields exist
-          toml get extension.toml id >/dev/null
-          toml get extension.toml name >/dev/null
-          toml get extension.toml version >/dev/null
-          toml get extension.toml schema_version >/dev/null
-          echo "✅ extension.toml validation passed"
+          python3 -c "
+          import toml
+          import sys
+          
+          try:
+              with open('extension.toml', 'r') as f:
+                  config = toml.load(f)
+              
+              # Check required fields exist
+              required_fields = ['id', 'name', 'version', 'schema_version']
+              for field in required_fields:
+                  if field not in config:
+                      print(f'❌ Missing required field: {field}')
+                      sys.exit(1)
+              
+              print('✅ extension.toml validation passed')
+          except Exception as e:
+              print(f'❌ TOML validation failed: {e}')
+              sys.exit(1)
+          "
       
       - name: Validate language configuration
         run: |
